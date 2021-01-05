@@ -44,7 +44,9 @@ class bertEventType(object):
         # bert_project = tf.layers.dropout(bert_project,rate=self.dropout_rate,training=is_training)
         # bert_project = tf.layers.dense(bert_project, self.num_labels)
         # pred_ids = tf.argmax(bert_project, axis=-1, name="pred_ids")
+
         # pred_prob = tf.nn.softmax(bert_project, axis=-1, name="pred_probs")
+
         if not is_testing:
             # one_hot_labels = tf.one_hot(labels, depth=self.num_labels, dtype=tf.float32)
             # log_probs = tf.nn.log_softmax(bert_project, axis=-1)
@@ -55,9 +57,11 @@ class bertEventType(object):
             per_example_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=bert_project)
             per_example_loss *= self.class_weight
             loss = tf.reduce_mean(per_example_loss)
+
             # loss = tf.reduce_mean(per_example_loss)
             # loss = dice_dsc_loss(bert_project,labels,text_length_list,weight,self.num_labels)
             # loss = focal_dsc_loss(bert_project,labels,text_length_list,weight,self.num_labels)
+
             return per_example_loss, loss, pred_prob
         else:
             return pred_prob
@@ -84,23 +88,25 @@ class bertEventTypeModified(object):
             text_length=text_length_list,
             use_one_hot_embeddings=False, token_type_ids=token_type_ids
         )
+        # bert_embedding = ([Dimension(None), Dimension(None), Dimension(768)])
         bert_embedding = bert_model.get_sequence_output()
         # bert_embedding = tf.layers.dropout(bert_embedding,rate=0.2,training=is_training)
-        batch_ids = tf.range(0, tf.shape(bert_embedding)[0])
-        batch_ids = tf.expand_dims(batch_ids, 1)
-        batch_ids = tf.expand_dims(batch_ids, -1)
-        batch_ids = tf.tile(batch_ids, [1, self.num_labels, 1])
-        type_index_in_token_ids = tf.expand_dims(type_index_in_token_ids, axis=-1) # 变成 (batch_size, 65, 1)
-        type_index = tf.concat([batch_ids, type_index_in_token_ids], axis=-1)
-        type_head_tensor = tf.gather_nd(bert_embedding, type_index)
+        batch_ids = tf.range(0, tf.shape(bert_embedding)[0]) # ([Dimension(None)])
+        batch_ids = tf.expand_dims(batch_ids, 1) # ([Dimension(None), Dimension(1)])
+        batch_ids = tf.expand_dims(batch_ids, -1) # ([Dimension(None), Dimension(1), Dimension(1)])
+        batch_ids = tf.tile(batch_ids, [1, self.num_labels, 1]) # ([Dimension(None), Dimension(65), Dimension(1)])
+        ## type_index_in_token_ids = ([Dimension(None), Dimension(65)])
+        type_index_in_token_ids = tf.expand_dims(type_index_in_token_ids, axis=-1) # ([Dimension(None), Dimension(65), Dimension(1)])
+        type_index = tf.concat([batch_ids, type_index_in_token_ids], axis=-1) # ([Dimension(None), Dimension(65), Dimension(2)])
+        type_head_tensor = tf.gather_nd(bert_embedding, type_index) # ([Dimension(None), Dimension(65), Dimension(768)])
         print(type_head_tensor)
         # bert_output = bert_model.get_pooled_output()
         # type_head_tensor = tf.layers.dense(type_head_tensor,768,activation=tf.nn.relu)
         # type_head_tensor = tf.layers.dropout(type_head_tensor,rate=0.2,training=is_training)
-        bert_project = tf.layers.dense(type_head_tensor, 1)
+        bert_project = tf.layers.dense(type_head_tensor, 1) # ([Dimension(None), Dimension(65), Dimension(1)])
 
         pred_prob = tf.nn.sigmoid(bert_project, name="pred_probs")
-        pred_prob = tf.squeeze(pred_prob, axis=-1)
+        pred_prob = tf.squeeze(pred_prob, axis=-1) # ([Dimension(None), Dimension(65)])
         # print(pred_prob)
         # print(labels)
         # lstm_layer = BLSTM(None, self.rnn_size, self.num_layers, 1.-self.dropout_rate,
@@ -118,15 +124,15 @@ class bertEventTypeModified(object):
         # pred_prob = tf.nn.softmax(bert_project, axis=-1, name="pred_probs")
 
         if not is_testing:
-            labels = tf.expand_dims(labels, axis=-1)
+            labels = tf.expand_dims(labels, axis=-1)# ([Dimension(None), Dimension(None), Dimension(1)])
             # one_hot_labels = tf.one_hot(labels, depth=self.num_labels, dtype=tf.float32)
             # log_probs = tf.nn.log_softmax(bert_project, axis=-1)
             # per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
             # per_example_loss = per_example_loss * weight
             # loss = tf.reduce_sum(per_example_loss,axis=-1)
             # loss = tf.reduce_mean(loss)
-            per_example_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=bert_project)
-            per_example_loss *= self.class_weight
+            per_example_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=bert_project )# ([Dimension(None), Dimension(65), Dimension(1)])
+            per_example_loss *= self.class_weight # ([Dimension(None), Dimension(65), Dimension(65)])
             loss = tf.reduce_mean(per_example_loss)
 
             # loss = tf.reduce_mean(per_example_loss)
@@ -138,13 +144,13 @@ class bertEventTypeModified(object):
             return pred_prob
 
 
-def bert_classification_model_fn_builder(bert_config_file, init_checkpoints, args): # bert_config.json 文件路径， checkpoints 文件路径
+def bert_classification_model_fn_builder(bert_config_file, init_checkpoints, args):
     def model_fn(features, labels, mode, params):
         logger.info("*** Features ***")
         if isinstance(features, dict):
             features = features['words'], features['token_type_ids'], features['text_length'], features[
                 'type_index_in_ids_list']
-        #         print(features)
+
         # input_ids,token_type_ids,text_length_list = features
         input_ids, token_type_ids, text_length_list, type_index_in_ids_list = features
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
@@ -169,13 +175,13 @@ def bert_classification_model_fn_builder(bert_config_file, init_checkpoints, arg
         #
         # eval_metrics = metric_fn(labels, pred_ids)
         tvars = tf.trainable_variables()
-        # 加载BERT模型
+        # load BERT
         if init_checkpoints:
             (assignment_map, initialized_variable_names) = \
                 modeling.get_assignment_map_from_checkpoint(tvars,
                                                             init_checkpoints)
             tf.train.init_from_checkpoint(init_checkpoints, assignment_map)
-        output_spec = None # 占位 output spec
+        output_spec = None
         # f1_score_val, f1_update_op_val = f1(labels=labels, predictions=pred_ids, num_classes=params["num_labels"],
         #                                     weights=weight)
 
@@ -200,18 +206,16 @@ def bert_classification_model_fn_builder(bert_config_file, init_checkpoints, arg
                 training_hooks=[logging_hook])
 
         elif mode == tf.estimator.ModeKeys.EVAL:
-            
-            # 全部转笔乘0 1
-            pred_ids = tf.where(pred_ids > 0.5, tf.ones_like(pred_ids), tf.zeros_like(pred_ids)) # Return the elements, either from x or y, depending on the condition
+
+            pred_ids = tf.where(pred_ids > 0.5, tf.ones_like(pred_ids), tf.zeros_like(pred_ids))
 
             def metric_fn(per_example_loss, label_ids, probabilities):
 
-                logits_split = tf.split(probabilities, params["num_labels"], axis=-1)
-                label_ids_split = tf.split(label_ids, params["num_labels"], axis=-1)
-                # split 为 （batch_size, 1）
+                logits_split = tf.split(probabilities, params["num_labels"], axis=-1) # 65*([Dimension(None), Dimension(1)])
+                label_ids_split = tf.split(label_ids, params["num_labels"], axis=-1) # 65*([Dimension(None), Dimension(None)])
                 # metrics change to auc of every class
                 eval_dict = {}
-                for j, logits in enumerate(logits_split): # 表示每个事件类别的概率输出
+                for j, logits in enumerate(logits_split):
                     label_id_ = tf.cast(label_ids_split[j], dtype=tf.int32)
                     current_auc, update_op_auc = tf.metrics.auc(label_id_, logits)
                     eval_dict[str(j)] = (current_auc, update_op_auc)
@@ -228,7 +232,7 @@ def bert_classification_model_fn_builder(bert_config_file, init_checkpoints, arg
             # f1_score_val,f1_update_op_val = f1(labels=labels,predictions=pred_ids,num_classes=params["num_labels"],weights=weight,average="macro")
             # f1_score_val_micro,f1_update_op_val_micro = f1(labels=labels,predictions=pred_ids,num_classes=params["num_labels"],average="macro")
 
-            # acc_score_val,acc_score_op_val = tf.metrics.accuracy(labels=labels,predictions=pred_ids,weights=weight)
+            acc_score_val,acc_score_op_val = tf.metrics.accuracy(labels=labels,predictions=pred_ids)
             # eval_loss = tf.metrics.mean_squared_error(labels=labels, predictions=pred_ids,weights=weight)
             # eval_metric_ops = {
             # "f1_score_micro":(f1_score_val_micro,f1_update_op_val_micro)}
@@ -236,8 +240,14 @@ def bert_classification_model_fn_builder(bert_config_file, init_checkpoints, arg
 
             # eval_logging_hook = tf.train.LoggingTensorHook(
             #     at_end=True,every_n_iter=args.print_log_steps)
+            
+            eval_metric_ops = {
+                "acc": (acc_score_val, acc_score_op_val),
+                "eval_loss": eval_metrics['eval_loss']
+            }
+
             output_spec = tf.estimator.EstimatorSpec(
-                eval_metric_ops=eval_metrics,
+                eval_metric_ops=eval_metric_ops,
                 mode=mode,
                 loss=loss
             )
@@ -262,7 +272,6 @@ def bert_binaryclassification_model_fn_builder(bert_config_file, init_checkpoint
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
         is_testing = (mode == tf.estimator.ModeKeys.PREDICT)
         bert_config = modeling.BertConfig.from_json_file(bert_config_file)
-        # tag_model = bertEventType(params,bert_config)
         tag_model = bertEventType(params, bert_config)
         if is_testing:
             # pred_ids = tag_model(input_ids, labels, text_length_list, token_type_ids,is_training,is_testing)

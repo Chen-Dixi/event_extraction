@@ -10,6 +10,7 @@ import os
 from bert4keras.tokenizers import Tokenizer
 from configs.event_config import event_config
 
+
 def search(pattern, sequence):
     """从sequence中寻找子串pattern
     如果找到，返回第一个下标；否则返回-1。
@@ -73,7 +74,7 @@ class EventRolePrepareMRC:
         # re_data_list,re_multi_label,_,_,re_query_len_list,re_token_type_id_list = self._read_json_relation_file(re_train_file,re_dev_file)
         data_list, label_start_list, label_end_list, multi_label_list, query_len_list, token_type_id_list, has_answer_list, data_list_neg, label_start_list_neg, label_end_list_neg, multi_label_list_neg, query_len_list_neg, token_type_id_list_neg, has_answer_list_neg = self._read_json_file(
             train_input_file, eval_input_file, is_train)
-        random.seed(2)
+        random.seed(2) # delete this line for investigate
         # re_index_list = [i for i in range(len(re_data_list))]
         # random.shuffle(re_index_list)
         # re_data_list = [re_data_list[index] for index in re_index_list]
@@ -86,8 +87,8 @@ class EventRolePrepareMRC:
         pos_index_list = [i for i in range(pos_num)]
         neg_index_list = [i for i in range(neg_num)]
 
-        random.shuffle(pos_index_list)
-        random.shuffle(neg_index_list)
+        random.shuffle(pos_index_list) # delete this line for investigate
+        random.shuffle(neg_index_list) # delete this line for investigate
         data_list = [data_list[index] for index in pos_index_list]
         label_start_list = [label_start_list[index] for index in pos_index_list]
         label_end_list = [label_end_list[index] for index in pos_index_list]
@@ -195,7 +196,7 @@ class EventRolePrepareMRC:
             # cur_query_len_list_train += re_query_len_list[0:15000]
             # cur_token_type_id_list_train += re_token_type_id_list[0:15000]
             train_data_index = [i for i in range(len(cur_data_list_train))]
-            random.shuffle(train_data_index)
+            random.shuffle(train_data_index) # delete this line for investigate
             cur_data_list_train = [cur_data_list_train[index] for index in train_data_index]
             cur_label_start_list_train = [cur_label_start_list_train[index] for index in train_data_index]
             cur_label_end_list_train = [cur_label_end_list_train[index] for index in train_data_index]
@@ -215,10 +216,10 @@ class EventRolePrepareMRC:
             np.save("data/verify_neg_fold_data_{}/token_type_ids_dev.npy".format(fold_index),
                     cur_token_type_id_list_dev)
             np.save("data/verify_neg_fold_data_{}/labels_start_dev.npy".format(fold_index), cur_label_start_list_dev)
-            np.save("data/verify_neg_fold_data_{}/labels_start_train.npy".format(fold_index),  # 多注意这个标签
+            np.save("data/verify_neg_fold_data_{}/labels_start_train.npy".format(fold_index),
                     cur_label_start_list_train)
             np.save("data/verify_neg_fold_data_{}/labels_end_dev.npy".format(fold_index), cur_label_end_list_dev)
-            np.save("data/verify_neg_fold_data_{}/labels_end_train.npy".format(fold_index), cur_label_end_list_train) # 多注意这个标签
+            np.save("data/verify_neg_fold_data_{}/labels_end_train.npy".format(fold_index), cur_label_end_list_train)
             np.save("data/verify_neg_fold_data_{}/has_answer_dev.npy".format(fold_index), cur_has_answer_dev)
             np.save("data/verify_neg_fold_data_{}/has_answer_train.npy".format(fold_index), cur_has_answer_train)
 
@@ -302,11 +303,9 @@ class EventRolePrepareMRC:
         has_answer_list = []
         has_answer_list_neg = []
         index_list = [i for i in range(len(input_data))]
-        random.shuffle(index_list)
+        random.shuffle(index_list) # delete this line for investigate
         event_type_record_list = []
-        role_not_included_list = []
         in_role_dict = {}
-        no_role_dict = {}
         no_role_list = []
         for index in index_list:
             data = input_data[index]
@@ -314,18 +313,16 @@ class EventRolePrepareMRC:
             sentence_token_ids, sentence_token_type_ids = self.tokenizer.encode(sentence)
             if len(sentence_token_ids) != len(sentence_token_type_ids):
                 print(sentence)
-            sentence_token_type_ids = [ids + 1 for ids in sentence_token_type_ids] # 为拼接准备
+            sentence_token_type_ids = [ids + 1 for ids in sentence_token_type_ids]
             if len(sentence_token_ids) != len(sentence_token_type_ids):
                 print(sentence)
             event_list = data["event_list"]
 
-            event_record_list = [event_ele.get("event_type") for event_ele in event_list] # 没有用
-            event_type_record_list.append(list(set(event_record_list))) # 没有用
+            event_record_list = [event_ele.get("event_type") for event_ele in event_list]
+            event_type_record_list.append(list(set(event_record_list)))
             for event in event_list:
                 dealt_role_list = []
                 event_type = event["event_type"]
-                event_type_words = [w for w in event_type]
-                roles_list = {}
                 role_type_dict = {}
                 for index, role in enumerate(event["arguments"]):
                     role_type = role["role"]
@@ -460,8 +457,8 @@ class EventTypeClassificationPrepare:
             train_input_file, eval_input_file, is_train)
         all_index_list = [i for i in range(len(data_list))]
         dev_num = int(len(data_list) / fold_num)
-        random.seed(2)
-        random.shuffle(all_index_list)
+        random.seed(2) # delete this line for investigate
+        random.shuffle(all_index_list) # delete this line for investigate
         data_list = [data_list[index] for index in all_index_list]
         label_list = [label_list[index] for index in all_index_list]
         token_type_id_list = [token_type_id_list[index] for index in all_index_list]
@@ -502,8 +499,8 @@ class EventTypeClassificationPrepare:
                                                          0:fold_start] + type_index_in_token_ids_list[fold_end:]
 
             train_data_index = [i for i in range(len(cur_data_list_train))]
-            random.shuffle(train_data_index) # 打乱了顺序
-            cur_data_list_train = [cur_data_list_train[index] for index in train_data_index] # 因为之前shuffle过，所以要这样
+            random.shuffle(train_data_index) # delete this line for investigate
+            cur_data_list_train = [cur_data_list_train[index] for index in train_data_index]
             cur_label_list_train = [cur_label_list_train[index] for index in train_data_index]
             cur_token_type_id_list_train = [cur_token_type_id_list_train[index] for index in train_data_index]
             cur_type_index_in_token_ids_list_train = [cur_type_index_in_token_ids_list_train[index] for index in
@@ -531,8 +528,6 @@ class EventTypeClassificationPrepare:
             event_type_str = self.id2labels_map.get(i)
             all_event_type_split.append(event_type_str)
         all_event_type_split = [ele.split("-")[-1] for ele in all_event_type_split]
-        # all_event_type_split = [降价 结婚 晋级 ... ... ]
-
         # index_list = [i for i in range(len(input_data))]
         # random.shuffle(index_list)
         # for index in index_list:
@@ -552,31 +547,28 @@ class EventTypeClassificationPrepare:
             type_token_len = 0
             suffix_token_ids = []
 
-            for index, event_type_raw in enumerate(all_event_type_split): # 包含56個
+            for index, event_type_raw in enumerate(all_event_type_split):
                 event_type_token_ids = self.tokenizer.encode(event_type_raw)[0]
                 text_len_for_event_raw_str += len(event_type_token_ids)
 
-            text_allow_len = 510 - text_len_for_event_raw_str # 除去開始和結尾，510是最大長度，
+            text_allow_len = 510 - text_len_for_event_raw_str
             if len(token_ids) > text_allow_len:
                 header_len = int(text_allow_len / 4)
                 tail_len = text_allow_len - header_len
                 dealt_token_ids = token_ids[1:-1]
                 prefix_token_ids = self.truncate_seq_head_tail(dealt_token_ids, header_len, tail_len, text_allow_len)
-                token_ids = [token_ids_org[0]] + prefix_token_ids + [token_ids_org[-1]]
+                token_ids = [token_ids_org[0]] + prefix_token_ids + [token_ids_org[1]]
                 token_type_ids = [0] * len(token_ids)
 
-            for index, event_type_raw in enumerate(all_event_type_split): # 這裡把 event_type 的 token 放到text的token當中
-                type_index_in_token_ids.append(len(token_ids))  # 這個句子text 的每個 event type token在 token化text 中的開始位置
+            for index, event_type_raw in enumerate(all_event_type_split):
+                type_index_in_token_ids.append(len(token_ids))
                 if index == 0:
                     event_type_token_ids = self.tokenizer.encode(event_type_raw)[0]
                     # [unused]
                     event_type_token_ids[0] = 5
-                    type_token_len += len(event_type_token_ids)
-
                 else:
                     event_type_token_ids = self.tokenizer.encode(event_type_raw)[0][1:]
-                    type_token_len += len(event_type_token_ids)
-                suffix_token_ids.extend(event_type_token_ids) # 後綴
+                suffix_token_ids.extend(event_type_token_ids)
                 token_ids = token_ids + event_type_token_ids
                 token_type_ids.extend([1] * len(event_type_token_ids))
             # if len(token_ids) > 512:
@@ -807,17 +799,17 @@ def event_input_bert_mrc_fn(input_Xs, start_Ys, end_Ys, token_type_ids, query_le
 def event_data_generator_bert_mrc_mul(input_Xs, Ys, token_type_ids, query_lens):
     for index in range(len(input_Xs)):
         input_x = input_Xs[index]
-        y = Ys[index]
-        # end_y = end_Ys[index]
+        y = Ys[0][index]
+        end_y = Ys[1][index]
         token_type_id = token_type_ids[index]
         query_len = query_lens[index]
-        yield (input_x, len(input_x), query_len, token_type_id), y
+        yield (input_x, len(input_x), query_len, token_type_id), (y, end_y)
 
 
 def event_input_bert_mrc_mul_fn(input_Xs, Ys, token_type_ids, query_lens, is_training, is_testing, args):
-    _shapes = (([None], (), (), [None]), [None])
-    _types = ((tf.int32, tf.int32, tf.int32, tf.int32), tf.int32)
-    _pads = ((0, 0, 0, 0), 0)
+    _shapes = (([None], (), (), [None]), ([None],[None]))
+    _types = ((tf.int32, tf.int32, tf.int32, tf.int32), (tf.int32,tf.int32))
+    _pads = ((0, 0, 0, 0), (0,0))
     ds = tf.data.Dataset.from_generator(
         lambda: event_data_generator_bert_mrc_mul(input_Xs, Ys, token_type_ids, query_lens),
         output_shapes=_shapes,

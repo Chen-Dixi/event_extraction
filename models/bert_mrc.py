@@ -26,22 +26,23 @@ class bertMRC(object):
             token_type_ids=token_type_ids_list,
             use_one_hot_embeddings=False
         )
-        bert_seq_output = bert_model.get_sequence_output()
+        bert_seq_output = bert_model.get_sequence_output() # [Dimension(None), Dimension(None), Dimension(768)]
 
         # bert_project = tf.layers.dense(bert_seq_output, self.hidden_units, activation=tf.nn.relu)
         # bert_project = tf.layers.dropout(bert_project, rate=self.dropout_rate, training=is_training)
-        start_logits = tf.layers.dense(bert_seq_output,self.num_labels)
-        end_logits = tf.layers.dense(bert_seq_output, self.num_labels)
-        query_span_mask = tf.cast(tf.sequence_mask(query_len_list),tf.int32)
-        total_seq_mask = tf.cast(tf.sequence_mask(text_length_list),tf.int32)
+        start_logits = tf.layers.dense(bert_seq_output,self.num_labels) # [Dimension(None), Dimension(None), Dimension(2)]
+        end_logits = tf.layers.dense(bert_seq_output, self.num_labels) # [Dimension(None), Dimension(None), Dimension(2)] 
+        # query_len_list = [Dimension(None)]
+        query_span_mask = tf.cast(tf.sequence_mask(query_len_list),tf.int32) # [Dimension(None), Dimension(None)]
+        total_seq_mask = tf.cast(tf.sequence_mask(text_length_list),tf.int32) # [Dimension(None), Dimension(None)]
         query_span_mask = query_span_mask * -1
-        query_len_max = tf.shape(query_span_mask)[1]
-        left_query_len_max = tf.shape(total_seq_mask)[1] - query_len_max
-        zero_mask_left_span = tf.zeros((tf.shape(query_span_mask)[0],left_query_len_max),dtype=tf.int32)
+        query_len_max = tf.shape(query_span_mask)[1] # []
+        left_query_len_max = tf.shape(total_seq_mask)[1] - query_len_max # []
+        zero_mask_left_span = tf.zeros((tf.shape(query_span_mask)[0],left_query_len_max),dtype=tf.int32) # [Dimension(None), Dimension(None)]
         final_mask = tf.concat((query_span_mask,zero_mask_left_span),axis=-1)
-        final_mask = final_mask + total_seq_mask
-        predict_start_ids = tf.argmax(start_logits, axis=-1, name="pred_start_ids")
-        predict_end_ids = tf.argmax(end_logits, axis=-1, name="pred_end_ids")
+        final_mask = final_mask + total_seq_mask # [Dimension(None), Dimension(None)]
+        predict_start_ids = tf.argmax(start_logits, axis=-1, name="pred_start_ids") # [Dimension(None), Dimension(None)]
+        predict_end_ids = tf.argmax(end_logits, axis=-1, name="pred_end_ids") # [Dimension(None), Dimension(None)]
         if not is_testing:
             # one_hot_labels = tf.one_hot(labels, depth=self.num_labels, dtype=tf.float32)
             # start_loss = ce_loss(start_logits,start_labels,final_mask,self.num_labels,True)
@@ -60,17 +61,11 @@ class bertMRC(object):
 def bert_mrc_model_fn_builder(bert_config_file,init_checkpoints,args):
     def model_fn(features, labels, mode, params):
         logger.info("*** Features ***")
-        
-        if isinstance(features, dict): # use this if brance in event_predict.py
+        if isinstance(features, dict):
             features = features['words'],features['text_length'],features['query_length'],features['token_type_ids']
-
+        print(features)
         input_ids,text_length_list,query_length_list,token_type_id_list = features
-        
-
         if labels is not None:
-            # print("Debug!!!!!!!")
-            # print(labels) # Tensor("IteratorGetNext:4", shape=(?, ?), dtype=int32)
-            # print(mode) 
             start_labels,end_labels = labels
         else:
             start_labels, end_labels = None,None
@@ -104,7 +99,7 @@ def bert_mrc_model_fn_builder(bert_config_file,init_checkpoints,args):
         #                                     weights=weight)
 
         if mode == tf.estimator.ModeKeys.TRAIN:
-            train_op = optimization.create_optimizer(loss,args.lr, params["decay_steps"],args.clip_norm, False)
+            train_op = optimization.create_optimizer(loss,args.lr, params["decay_steps"],args.clip_norm,use_tpu=False)
             hook_dict = {}
             # precision_score, precision_update_op = precision(labels=labels, predictions=pred_ids,
             #                                                  num_classes=params["num_labels"], weights=weight)

@@ -4,7 +4,7 @@ import time
 import logging
 from common_utils import set_logger
 import tensorflow as tf
-from sklearn.metrics import f1_score
+
 
 from models.bert_mrc import bert_mrc_model_fn_builder
 
@@ -12,7 +12,7 @@ from models.bert_event_type_classification import bert_classification_model_fn_b
 from data_processing.data_utils import *
 from data_processing.event_prepare_data import EventRolePrepareMRC, EventTypeClassificationPrepare
 # from data_processing.event_prepare_data import EventRoleClassificationPrepare
-from data_processing.event_prepare_data import event_input_bert_mrc_mul_fn, event_index_class_input_bert_fn, event_input_bert_mrc_fn
+from data_processing.event_prepare_data import event_index_class_input_bert_fn, event_input_bert_mrc_fn
 from data_processing.event_prepare_data import event_binclass_input_bert_fn
 from models.bert_event_type_classification import bert_binaryclassification_model_fn_builder
 from data_processing.event_prepare_data import event_input_verfify_mrc_fn
@@ -20,7 +20,7 @@ from models.event_verify_av import event_verify_mrc_model_fn_builder
 from configs.event_config import event_config
 
 # import horovod.tensorflow as hvd
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 logger = set_logger("[run training]")
 
@@ -107,22 +107,16 @@ def run_event_role_mrc(args):
     schema_file = os.path.join(event_config.get("data_dir"), event_config.get("event_schema"))
     query_map_file = os.path.join(event_config.get("slot_list_root_path"), event_config.get("query_map_file"))
     data_loader = EventRolePrepareMRC(vocab_file_path, 512, slot_file, schema_file, query_map_file)
-    # train_file = os.path.join(event_config.get("data_dir"), event_config.get("event_data_file_train"))
-    # eval_file = os.path.join(event_config.get("data_dir"), event_config.get("event_data_file_eval"))
-    # data_list,label_start_list,label_end_list,query_len_list,token_type_id_list
-    # train_datas, train_labels_start,train_labels_end,train_query_lens,train_token_type_id_list,dev_datas, dev_labels_start,dev_labels_end,dev_query_lens,dev_token_type_id_list = data_loader._read_json_file(train_file,eval_file,True)
-    # dev_datas, dev_labels_start,dev_labels_end,dev_query_lens,dev_token_type_id_list = data_loader._read_json_file(eval_file,None,False)
-    # train_datas, train_labels_start,train_labels_end,train_query_lens,train_token_type_id_list,dev_datas, dev_labels_start,dev_labels_end,dev_query_lens,dev_token_type_id_list = data_loader._merge_ee_and_re_datas(train_file,eval_file,"relation_extraction/data/train_data.json","relation_extraction/data/dev_data.json")
-
+    
     train_datas = np.load("data/verify_neg_fold_data_{}/token_ids_train.npy".format(args.fold_index), allow_pickle=True)
-    # train_labels = np.load("data/verify_neg_fold_data_{}/multi_labels_train.npy".format(args.fold_index), allow_pickle=True)
     train_start_labels = np.load("data/verify_neg_fold_data_{}/labels_start_train.npy".format(args.fold_index), allow_pickle=True)
     train_end_labels = np.load("data/verify_neg_fold_data_{}/labels_end_train.npy".format(args.fold_index), allow_pickle=True)
     train_query_lens = np.load("data/verify_neg_fold_data_{}/query_lens_train.npy".format(args.fold_index), allow_pickle=True)
     train_token_type_id_list = np.load("data/verify_neg_fold_data_{}/token_type_ids_train.npy".format(args.fold_index),
                                        allow_pickle=True)
     dev_datas = np.load("data/verify_neg_fold_data_{}/token_ids_dev.npy".format(args.fold_index), allow_pickle=True)
-    dev_labels = np.load("data/verify_neg_fold_data_{}/multi_labels_dev.npy".format(args.fold_index), allow_pickle=True)
+    dev_start_labels = np.load("data/verify_neg_fold_data_{}/labels_start_dev.npy".format(args.fold_index), allow_pickle=True)
+    dev_end_labels = np.load("data/verify_neg_fold_data_{}/labels_end_dev.npy".format(args.fold_index), allow_pickle=True)
     dev_query_lens = np.load("data/verify_neg_fold_data_{}/query_lens_dev.npy".format(args.fold_index), allow_pickle=True)
     dev_token_type_id_list = np.load("data/verify_neg_fold_data_{}/token_type_ids_dev.npy".format(args.fold_index),
                                      allow_pickle=True)
@@ -168,19 +162,14 @@ def run_event_role_mrc(args):
         params=params,
         config=run_config)
     if args.do_train:
-        # train_input_fn = lambda: event_input_bert_mrc_mul_fn(
-        #     train_datas, train_labels, train_token_type_id_list, train_query_lens,
-        #     is_training=True, is_testing=False, args=args)
+        
         train_input_fn = lambda: event_input_bert_mrc_fn(
             train_datas, train_start_labels, train_end_labels, train_token_type_id_list, train_query_lens,
             is_training=True, is_testing=False, args=args)
-        # eval_input_fn = lambda: event_input_bert_mrc_mul_fn(
-        #     dev_datas, dev_labels, dev_token_type_id_list, dev_query_lens,
-        #     is_training=False, is_testing=False, args=args)
         eval_input_fn = lambda: event_input_bert_mrc_fn(
             train_datas, train_start_labels, train_end_labels, train_token_type_id_list, train_query_lens,
             is_training=True, is_testing=False, args=args)
-        
+
         train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=train_steps_nums
                                             )
         exporter = tf.estimator.BestExporter(exports_to_keep=1,
@@ -201,16 +190,13 @@ def run_event_classification(args):
     """
     model_base_dir = event_config.get(args.model_checkpoint_dir).format(args.fold_index)
     pb_model_dir = event_config.get(args.model_pb_dir).format(args.fold_index)
-    print(model_base_dir)
-    print(pb_model_dir)
-    
+    # print(model_base_dir)
+    # print(pb_model_dir)
     vocab_file_path = os.path.join(event_config.get("bert_pretrained_model_path"), event_config.get("vocab_file"))
     bert_config_file = os.path.join(event_config.get("bert_pretrained_model_path"),
                                     event_config.get("bert_config_path"))
     event_type_file = os.path.join(event_config.get("slot_list_root_path"), event_config.get("event_type_file"))
     data_loader = EventTypeClassificationPrepare(vocab_file_path, 512, event_type_file)
-    train_file = os.path.join(event_config.get("data_dir"), event_config.get("event_data_file_train"))
-    eval_file = os.path.join(event_config.get("data_dir"), event_config.get("event_data_file_eval"))
     # train_data_list,train_label_list,train_token_type_id_list,dev_data_list,dev_label_list,dev_token_type_id_list = data_loader._read_json_file(train_file,eval_file,is_train=True)
     train_data_list = np.load("data/index_type_fold_data_{}/token_ids_train.npy".format(args.fold_index),
                               allow_pickle=True)
@@ -228,12 +214,11 @@ def run_event_classification(args):
         "data/index_type_fold_data_{}/type_index_in_token_ids_dev.npy".format(args.fold_index), allow_pickle=True)
     train_labels = np.array(train_label_list)
     # print(train_labels.shape)
-    print(train_labels.shape)
     a = np.sum(train_labels, axis=0)
     a = [max(a) / ele for ele in a]
     class_weight = np.array(a)
     class_weight = np.reshape(class_weight, (1, 65))
-    print(class_weight)
+    # print(class_weight)
     # dev_datas,dev_token_type_ids,dev_labels = data_loader._read_json_file(eval_file)
     train_samples_nums = len(train_data_list)
     dev_samples_nums = len(dev_data_list)
@@ -256,10 +241,6 @@ def run_event_classification(args):
     # dist_strategy = tf.contrib.distribute.MirroredStrategy(num_gpus=args.gpu_nums)
     config_tf = tf.ConfigProto()
     config_tf.gpu_options.allow_growth = True
-    # "bert_ce_model_dir"
-    # mirrored_strategy = tf.distribute.MirroredStrategy()
-    # config_tf.gpu_options.visible_device_list = str(hvd.local_rank())
-    # checkpoint_path = os.path.join(bert_config.get(args.model_checkpoint_dir), str(hvd.rank()))
 
     run_config = tf.estimator.RunConfig(
         model_dir=model_base_dir,
@@ -279,12 +260,6 @@ def run_event_classification(args):
         config=run_config)
 
     if args.do_train:
-        # train_input_fn = lambda: data_loader.create_dataset(is_training=True,is_testing=False, args=args)
-        # eval_input_fn = lambda: data_loader.create_dataset(is_training=False,is_testing=False,args=args)
-        # train_X,train_Y = np.load(data_loader.train_X_path,allow_pickle=True),np.load(data_loader.train_Y_path,allow_pickle=True)
-
-        # train_input_fn = lambda :event_class_input_bert_fn(train_data_list,token_type_ids=train_token_type_id_list,label_map_len=data_loader.labels_map_len,
-        #                                                  is_training=True,is_testing=False,args=args,input_Ys=train_label_list)
 
         train_input_fn = lambda: event_index_class_input_bert_fn(train_data_list,
                                                                  token_type_ids=train_token_type_id_list,
@@ -311,7 +286,7 @@ def run_event_classification(args):
         estimator.export_saved_model(pb_model_dir, bert_event_type_serving_input_receiver_fn)
 
 
-def run_event_binclassification(args): # 粗读粗读原文，判断问题是否可以在原文找到答案
+def run_event_binclassification(args):
     """
     retroreader中的eav模块，即第一遍阅读模块，预测该问题是否有回答
     :param args:
@@ -325,10 +300,7 @@ def run_event_binclassification(args): # 粗读粗读原文，判断问题是否
     bert_config_file = os.path.join(event_config.get("bert_pretrained_model_path"),
                                     event_config.get("bert_config_path"))
     event_type_file = os.path.join(event_config.get("slot_list_root_path"), event_config.get("event_type_file"))
-    # data_loader =EventTypeClassificationPrepare(vocab_file_path,512,event_type_file)
-    # train_file = os.path.join(event_config.get("data_dir"),event_config.get("event_data_file_train"))
-    # eval_file = os.path.join(event_config.get("data_dir"),event_config.get("event_data_file_eval"))
-    # train_data_list,train_label_list,train_token_type_id_list,dev_data_list,dev_label_list,dev_token_type_id_list = data_loader._read_json_file(train_file,eval_file,is_train=True)
+   
     train_data_list = np.load("data/verify_neg_fold_data_{}/token_ids_train.npy".format(args.fold_index),
                               allow_pickle=True)
     # train_label_list = np.load("data/verify_neg_fold_data_{}/has_answer_train.npy".format(args.fold_index),allow_pickle=True)
@@ -380,10 +352,7 @@ def run_event_binclassification(args): # 粗读粗读原文，判断问题是否
     # dist_strategy = tf.contrib.distribute.MirroredStrategy(num_gpus=args.gpu_nums)
     config_tf = tf.ConfigProto()
     config_tf.gpu_options.allow_growth = True
-    # "bert_ce_model_dir"
-    # mirrored_strategy = tf.distribute.MirroredStrategy()
-    # config_tf.gpu_options.visible_device_list = str(hvd.local_rank())
-    # checkpoint_path = os.path.join(bert_config.get(args.model_checkpoint_dir), str(hvd.rank()))
+   
 
     run_config = tf.estimator.RunConfig(
         model_dir=model_base_dir,
@@ -403,21 +372,12 @@ def run_event_binclassification(args): # 粗读粗读原文，判断问题是否
         config=run_config)
 
     if args.do_train:
-        # train_input_fn = lambda: data_loader.create_dataset(is_training=True,is_testing=False, args=args)
-        # eval_input_fn = lambda: data_loader.create_dataset(is_training=False,is_testing=False,args=args)
-        # train_X,train_Y = np.load(data_loader.train_X_path,allow_pickle=True),np.load(data_loader.train_Y_path,allow_pickle=True)
-
-        # train_input_fn = lambda :event_class_input_bert_fn(train_data_list,token_type_ids=train_token_type_id_list,label_map_len=data_loader.labels_map_len,
-        #                                                  is_training=True,is_testing=False,args=args,input_Ys=train_label_list)
 
         train_input_fn = lambda: event_binclass_input_bert_fn(train_data_list, token_type_ids=train_token_type_id_list,
                                                               label_map_len=1,
                                                               is_training=True, is_testing=False, args=args,
                                                               input_Ys=train_label_list)
-        # eval_X,eval_Y = np.load(data_loader.valid_X_path,allow_pickle=True),np.load(data_loader.valid_Y_path,allow_pickle=True)
-
-        # eval_input_fn = lambda: event_class_input_bert_fn(dev_data_list,token_type_ids=dev_token_type_id_list,label_map_len=data_loader.labels_map_len,
-        #                                                 is_training=False,is_testing=False,args=args,input_Ys=dev_label_list)
+        
         eval_input_fn = lambda: event_binclass_input_bert_fn(dev_data_list, token_type_ids=dev_token_type_id_list,
                                                              label_map_len=1,
                                                              is_training=False, is_testing=False, args=args,
@@ -447,13 +407,7 @@ def run_event_verify_role_mrc(args):
                              event_config.get("bert_slot_complete_file_name_role"))
     schema_file = os.path.join(event_config.get("data_dir"), event_config.get("event_schema"))
     query_map_file = os.path.join(event_config.get("slot_list_root_path"), event_config.get("query_map_file"))
-    data_loader = EventRolePrepareMRC(vocab_file_path, 512, slot_file, schema_file, query_map_file)
-    # train_file = os.path.join(event_config.get("data_dir"), event_config.get("event_data_file_train"))
-    # eval_file = os.path.join(event_config.get("data_dir"), event_config.get("event_data_file_eval"))
-    # data_list,label_start_list,label_end_list,query_len_list,token_type_id_list
-    # train_datas, train_labels_start,train_labels_end,train_query_lens,train_token_type_id_list,dev_datas, dev_labels_start,dev_labels_end,dev_query_lens,dev_token_type_id_list = data_loader._read_json_file(train_file,eval_file,True)
-    # dev_datas, dev_labels_start,dev_labels_end,dev_query_lens,dev_token_type_id_list = data_loader._read_json_file(eval_file,None,False)
-    # train_datas, train_labels_start,train_labels_end,train_query_lens,train_token_type_id_list,dev_datas, dev_labels_start,dev_labels_end,dev_query_lens,dev_token_type_id_list = data_loader._merge_ee_and_re_datas(train_file,eval_file,"relation_extraction/data/train_data.json","relation_extraction/data/dev_data.json")
+  
     train_has_answer_label_list = []
     dev_has_answer_label_list = []
     train_datas = np.load("data/verify_neg_fold_data_{}/token_ids_train.npy".format(args.fold_index), allow_pickle=True)
@@ -544,7 +498,6 @@ def run_event_verify_role_mrc(args):
         exporter = tf.estimator.BestExporter(exports_to_keep=1,
                                              serving_input_receiver_fn=bert_mrc_serving_input_receiver_fn)
         eval_spec = tf.estimator.EvalSpec(input_fn=eval_input_fn, exporters=[exporter], throttle_secs=0)
-        # for _ in range(args.epochs):
 
         tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
         # "bert_ce_model_pb"

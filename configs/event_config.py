@@ -25,8 +25,8 @@ event_config = {
     'valid_data_tag_name': 'valid_split_data_tag.npy',
     'test_data_text_name': 'test_data_text.npy',
     'test_data_tag_name': 'test_data_tag.npy',
-    # "bert_pretrained_model_path":os.path.join('data','chinese_roberta_wwm_ext_L-12_H-768_A-12'),
-    "bert_pretrained_model_path": os.path.join('data', 'chinese_roberta_wwm_ext_L-12_H-1024_A-12_large'),
+    "bert_pretrained_model_path":os.path.join('data','chinese_roberta_wwm_ext_L-12_H-768_A-12'),
+    # "bert_pretrained_model_path": os.path.join('data', 'chinese_roberta_wwm_ext_L-12_H-1024_A-12_large'),
     # "bert_pretrained_model_path":os.path.join('data','albert_large_zh'),
 
     # "bert_pretrained_model_path":os.path.join('roberta_zh-master','finetune_roberta_large_wwm'),

@@ -21,6 +21,19 @@
 
 对于roberta-wwm-base,分数为0.851.
 
+## Docker 环境
+
+```shell
+docker build -t tensorflow-event-extraction-mrc:1.0 .
+```
+
+启动Docker
+
+```shell
+docker run --rm --name EventExtractionMRC -it --gpus all --mount type=bind,source=/path/to/EventExtractionMRC,target=/EventExtractionMRC tensorflow-event-extraction-mrc:1.0 bash
+```
+
+
 ## 生成k-fold训练数据：
 
 根据不同阶段，生成两个阶段的k-fold训练数据，具体可参考gen_kfold_data.py
@@ -48,4 +61,10 @@ bash run_retro_eav.sh
 
 ```shell
 bash run_retro_rolemrc.sh
+```
+
+## 在测试集上推理
+
+```shell
+bash event_predict.sh
 ```
